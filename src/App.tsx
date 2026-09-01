@@ -2,6 +2,7 @@
 import { useMemo, useState, useCallback } from 'react';
 import {
   ConfigurationPanel,
+  HistoryPanel,
   IngredientTable,
   MixingPlanDisplay,
 } from './components';
@@ -12,16 +13,20 @@ import {
   useGeometricCalculations,
   useOptimizedPlan,
   usePDFModule,
+  useHistory,
 } from './hooks';
 import { exportarTxt, exportarCSV, copy } from './utils';
 import { vd } from './lib/geom';
+import type { MezclaHistorial } from './types';
 
 export default function App() {
   // ── Estado principal
-  const { items, onNombreChange, onValorChange, onMallaChange, onRemove, onAdd, cargarEjemplo } = useIngredients();
-  const { config, onConfigChange } = useConfiguration();
-  const { params, onParamChange } = useHomogeneityParams();
+  const { items, setItems, onNombreChange, onValorChange, onMallaChange, onRemove, onAdd, cargarEjemplo } = useIngredients();
+  const { config, setConfig, onConfigChange } = useConfiguration();
+  const { params, setParams, onParamChange } = useHomogeneityParams();
   const pdfModule = usePDFModule();
+  const history = useHistory();
+  const [showHistory, setShowHistory] = useState(false);
 
   // ── Cálculos (memoizados)
   const { ingredientes, mallasMap, prepesadoTandas } = useGeometricCalculations(items, config.produccionGramos);
@@ -127,6 +132,50 @@ export default function App() {
     cargarEjemplo();
   }, [cargarEjemplo]);
 
+  // ── Historial de mezclas
+  const onGuardarMezcla = useCallback(() => {
+    if (items.length === 0 || ingredientes.length === 0) {
+      alert('No hay ingredientes para guardar. Añade al menos uno antes de guardar la mezcla.');
+      return;
+    }
+    const nombre = config.formulaNombre?.trim() ||
+      window.prompt('Nombre de la mezcla (ej. "Fucoxina Lote 0926"):', '');
+    if (!nombre || !nombre.trim()) return;
+    const notas = window.prompt('Notas opcionales (responsable, observaciones, etc.):', '') ?? '';
+    const ultimoPaso = pasosGeom[pasosGeom.length - 1];
+    const mezcla: Omit<MezclaHistorial, 'id' | 'fechaGuardado'> = {
+      nombre: nombre.trim(),
+      config: { ...config, formulaNombre: nombre.trim() },
+      items: items.map((r) => ({ ...r })),  // copia profunda
+      params: { ...params },
+      total: totalObjetivo,
+      rsdFinalEstimado: ultimoPaso?.rsdEstimado ?? 0,
+      indiceHomogeneidadFinal: ultimoPaso?.indiceHomogeneidad ?? 0,
+      violacionesCount: violaciones.length,
+      notas: notas.trim() || undefined,
+    };
+    const guardada = history.guardar(mezcla);
+    if (guardada) {
+      alert(`Mezcla "${guardada.nombre}" guardada. Total: ${history.mezclas.length} en historial.`);
+    } else {
+      alert(`No se pudo guardar: ${history.error ?? 'error desconocido'}`);
+    }
+  }, [items, ingredientes, config, params, totalObjetivo, pasosGeom, violaciones, history]);
+
+  const onCargarMezcla = useCallback((id: string) => {
+    const mezcla = history.cargar(id);
+    if (!mezcla) {
+      alert('No se encontró esa mezcla.');
+      return;
+    }
+    // Reemplazar el estado actual con el snapshot
+    setItems(mezcla.items.map((r) => ({ ...r })));
+    setConfig(mezcla.config);
+    setParams(mezcla.params);
+    setShowHistory(false);
+    alert(`Mezcla "${mezcla.nombre}" cargada.`);
+  }, [history, setItems, setConfig, setParams]);
+
   // ── Render
   return (
     <div className="container">
@@ -137,6 +186,10 @@ export default function App() {
         </div>
         <div className="toolbar">
           <button className="button secondary" onClick={onCargarEjemplo}>Cargar ejemplo</button>
+          <button className="button" onClick={onGuardarMezcla}>Guardar mezcla</button>
+          <button className="button secondary" onClick={() => setShowHistory(true)}>
+            Historial ({history.mezclas.length})
+          </button>
           <button className="button" onClick={onExportTXT}>Exportar TXT</button>
           <button
             className="button"
@@ -205,6 +258,19 @@ export default function App() {
       <footer>
         <small>© {new Date().getFullYear()} NutraLab</small>
       </footer>
+
+      {showHistory && (
+        <HistoryPanel
+          mezclas={history.mezclas}
+          onCargar={onCargarMezcla}
+          onEliminar={(id) => history.eliminar(id)}
+          onEliminarTodo={() => history.eliminarTodo()}
+          onExportar={() => history.exportar()}
+          onImportar={(json, opts) => history.importar(json, opts)}
+          onCerrar={() => { setShowHistory(false); history.limpiarError(); }}
+          storage={history.storage}
+        />
+      )}
     </div>
   );
 }

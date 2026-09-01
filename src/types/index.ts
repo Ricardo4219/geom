@@ -83,6 +83,22 @@ export interface PasoOptimizado {
   rsdEstimado?: number;          // %
 }
 
+// Tipos del historial de mezclas (persistido en localStorage)
+
+export interface MezclaHistorial {
+  id: string;
+  fechaGuardado: string;          // ISO timestamp
+  nombre: string;                 // ej "Fucoxina 0826"
+  config: ConfiguracionState;     // snapshot completo
+  items: Row[];                   // ingredientes con sus valores y mallas
+  params: HomogeneidadParams;     // alphaHomog, metodoHomog, etc.
+  total: number;                  // g de la fórmula completa
+  rsdFinalEstimado: number;       // % de la última corrida calculada
+  indiceHomogeneidadFinal: number; // 0-1
+  violacionesCount: number;       // número de pasos fuera de ratio
+  notas?: string;                 // comentarios libres del operador
+}
+
 // Parámetros del PDF
 export interface PDFParams {
   total: number;
