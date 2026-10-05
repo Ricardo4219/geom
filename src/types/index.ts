@@ -23,12 +23,12 @@ export interface ConfiguracionState {
 export type MetodoHomog = 'quadratic' | 'hybrid' | 'ratio';
 
 export interface HomogeneidadParams {
-  alphaHomog: number;        // 0.2-2.0
-  rsdInicial: number;         // %
+  alphaHomog: number;        // 0.2–2.0
+  rsdInicial: number;          // %
   metodoHomog: MetodoHomog;
-  ratioTol: number;          // 0-1 (tolerancia ±1:1)
-  mergeThreshold: number;     // 0-1
-  epsMerge: number;          // 0-1 (g)
+  ratioTol: number;           // 0–1 (tolerancia ±1:1)
+  epsMerge: number;           // 0–1 (g)
+  objetivoRSD?: number;       // % — RSD objetivo para convergencia (default 5)
 }
 
 // Tipos del algoritmo geom.ts
@@ -81,6 +81,7 @@ export interface PasoOptimizado {
   homogeneidadResidual?: number;  // R acumulado
   indiceHomogeneidad?: number;    // 1 - R
   rsdEstimado?: number;          // %
+  energia?: { rpm?: number; tiempoSeg?: number; tipoMovimiento?: string }; // instrucciones de mezclado
 }
 
 // Tipos del historial de mezclas (persistido en localStorage)
@@ -118,7 +119,6 @@ export interface PDFParams {
   planOptimizado: string[];
   metodoHomog: MetodoHomog;
   ratioTol: number;
-  mergeThreshold: number;
   epsMerge: number;
   rsdInicial: number;
 }

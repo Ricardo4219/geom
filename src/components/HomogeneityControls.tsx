@@ -81,9 +81,9 @@ export function HomogeneityControls({ params, onParamChange }: Props) {
           min={0}
           max={1}
           step={0.01}
-          value={params.mergeThreshold}
+          value={params.ratioTol}
           onChange={(e) =>
-            onParamChange('mergeThreshold', Math.max(0, Math.min(1, +e.target.value)))
+            onParamChange('ratioTol', Math.max(0, Math.min(1, +e.target.value)))
           }
           style={{ width: 100 }}
         />

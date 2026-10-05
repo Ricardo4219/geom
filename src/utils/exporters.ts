@@ -49,7 +49,7 @@ export function exportarTxt(p: ExportTxtParams): void {
   if (p.pasosGeom.length) {
     a.push('');
     a.push(
-      `Tabla de homogeneidad  (Método=${p.params.metodoHomog}, α=${p.params.alphaHomog.toFixed(2)}, Tol=±${(p.params.ratioTol * 100).toFixed(0)}%, Merge%=${(p.params.mergeThreshold * 100).toFixed(0)}, ResiduoAbs=${p.params.epsMerge.toFixed(2)} g)`
+      `Tabla de homogeneidad  (Método=${p.params.metodoHomog}, α=${p.params.alphaHomog.toFixed(2)}, Tol=±${(p.params.ratioTol * 100).toFixed(0)}%, ResiduoAbs=${p.params.epsMerge.toFixed(2)} g)`
     );
     a.push('Paso | Fase | MezclaAntes(g) | Adicion(g) | MezclaDespues(g) | Indice(%) | Residual(%)');
     a.push('-----+------+---------------+------------+------------------+----------+-----------');

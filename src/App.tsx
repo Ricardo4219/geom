@@ -108,7 +108,6 @@ export default function App() {
         planOptimizado,
         metodoHomog: params.metodoHomog,
         ratioTol: params.ratioTol,
-        mergeThreshold: params.mergeThreshold,
         epsMerge: params.epsMerge,
         rsdInicial: params.rsdInicial,
       });
