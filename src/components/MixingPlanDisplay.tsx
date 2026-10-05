@@ -12,7 +12,7 @@ interface Props {
   advertencia?: string;
   advertenciaGeom?: string;
   homogeneidadParams: HomogeneidadParams;
-  onHomogeneidadParamChange: (campo: keyof HomogeneidadParams, valor: number | string) => void;
+  onHomogeneidadParamChange: (campo: keyof HomogeneidadParams, valor: number | string | boolean) => void;
   onExportCSV: () => void;
 }
 

@@ -248,7 +248,9 @@ export function wd(
   mallasMap: Record<string, string>,
   params: HomogeneidadParams
 ): ResultadoWd {
-  const { alphaHomog, rsdInicial, metodoHomog, ratioTol, epsMerge } = params;
+  const { alphaHomog, rsdInicial, metodoHomog, ratioTol, epsMerge, objetivoRSD, precorteEnabled, precorteUmbral } = params;
+  const umbral = precorteUmbral ?? 20; // % del total
+  const totalPesos = ingredientes.reduce((s, i) => s + i.peso, 0);
 
   if (ingredientes.length === 0) {
     return { planOptimizado: [], pasosGeom: [], violaciones: [], advertenciaGeom: '' };
@@ -269,8 +271,64 @@ export function wd(
   const plan: PasoOptimizado[] = [];
   let mezclaPrincipal = 0;
   let subTotal = 0;
+  let precorteTotal = 0;
 
-  // 2) Sub-mezcla acondicionada (si aplica)
+  const tol = epsMerge;
+  const pushPaso = (desc: string, ad: number, antes: number, ing: string, viol: boolean): void => {
+    plan.push({
+      descripcion: desc,
+      adicion: ad,
+      mezclaAntes: antes,
+      mezclaDespues: antes + ad,
+      ingrediente: ing,
+      fase: 'PRINCIPAL',
+      violacion: viol,
+    });
+  };
+
+  // 1.5) Precorte: si ingrediente > umbral % del total, pre-diluir 1:1 con excipiente
+  const ingredientesPrecorte = precorteEnabled
+    ? ingredientes.filter((i) => (i.peso / totalPesos) * 100 > umbral)
+    : [];
+  const nombresPrecorte = new Set(ingredientesPrecorte.map((i) => i.nombre));
+  const excipiente = ingredientes.find((i) => !nombresPrecorte.has(i.nombre) && i.peso === Math.max(...ingredientes.filter((x) => !nombresPrecorte.has(x.nombre)).map((x) => x.peso)));
+
+  if (ingredientesPrecorte.length > 0 && excipiente) {
+    for (const ing of ingredientesPrecorte) {
+      const porcion = ing.peso; // peso total del ingrediente a precortar
+      const tandas = Math.min(10, Math.max(2, Math.round(porcion / 5))); // 10 tandas o menos si es pequeño
+      const porcionTanda = +(porcion / tandas).toFixed(4);
+      const excipientePorTanda = +(porcionTanda).toFixed(4); // 1:1 con excipiente
+      const subMezclaTanda = +(porcionTanda * 2).toFixed(4);
+
+      for (let t = 0; t < tandas; t++) {
+        if (mezclaPrincipal === 0 && precorteTotal === 0) {
+          // Primera tanda: iniciar con sub-mezcla
+          pushPaso(
+            `Precorte: Inicia ${subMezclaTanda.toFixed(2)} g (${porcionTanda.toFixed(2)} g ${ing.nombre} + ${excipientePorTanda.toFixed(2)} g ${excipiente.nombre}). Mezcla.`,
+            subMezclaTanda,
+            0,
+            `${ing.nombre}+${excipiente.nombre}`,
+            false
+          );
+          mezclaPrincipal = subMezclaTanda;
+        } else {
+          const antes = mezclaPrincipal;
+          pushPaso(
+            `Precorte: Añade ${subMezclaTanda.toFixed(2)} g (${porcionTanda.toFixed(2)} g ${ing.nombre} + ${excipientePorTanda.toFixed(2)} g ${excipiente.nombre}). Mezcla.`,
+            subMezclaTanda,
+            antes,
+            `${ing.nombre}+${excipiente.nombre}`,
+            false
+          );
+          mezclaPrincipal += subMezclaTanda;
+        }
+        precorteTotal += subMezclaTanda;
+      }
+    }
+  }
+
+  // 2) Sub-mezcla acondicionada (si aplica) — solo ingredientes NO precortados
   if (sub && principal && sub.nombre !== principal.nombre) {
     const t = sub.peso;
     const D = Math.min(principal.peso, t);
@@ -288,22 +346,8 @@ export function wd(
 
   // 3) Ingredientes principales (excluyendo sub y principal usado en sub)
   const principales = conMalla
-    .filter((i) => (!sub || i.nombre !== sub.nombre) && (!principal || i.nombre !== principal.nombre))
+    .filter((i) => (!sub || i.nombre !== sub.nombre) && (!principal || i.nombre !== principal.nombre) && !nombresPrecorte.has(i.nombre))
     .sort((a, b) => a.peso - b.peso);
-
-  const tol = epsMerge;
-
-  const pushPaso = (desc: string, ad: number, antes: number, ing: string, viol: boolean): void => {
-    plan.push({
-      descripcion: desc,
-      adicion: ad,
-      mezclaAntes: antes,
-      mezclaDespues: antes + ad,
-      ingrediente: ing,
-      fase: 'PRINCIPAL',
-      violacion: viol,
-    });
-  };
 
   const agregar = (nombre: string, pesoObjetivo: number) => {
     let restante = +pesoObjetivo.toFixed(4);
@@ -334,8 +378,8 @@ export function wd(
 
   principales.forEach((p) => agregar(p.nombre, p.peso));
 
-  // 4) Terminar de añadir el "principal" original (lo que no se usó)
-  if (sub && principal && sub.nombre !== principal.nombre) {
+  // 4) Terminar de añadir el "principal" original (lo que no se usó) — solo si no fue precortado
+  if (sub && principal && sub.nombre !== principal.nombre && !nombresPrecorte.has(principal.nombre)) {
     let restante = +(principal.peso - mezclaPrincipal).toFixed(4);
     while (restante > 1e-6) {
       if (mezclaPrincipal === 0) {
@@ -363,12 +407,16 @@ export function wd(
   }
 
   // 5) Unificación final
-  if (subTotal > 0) {
+  const unificarTotal = subTotal + precorteTotal;
+  if (unificarTotal > 0) {
+    const partes: string[] = [];
+    if (subTotal > 0) partes.push(`sub‑mezcla acondicionada (${subTotal.toFixed(2)} g)`);
+    if (precorteTotal > 0) partes.push(`precorte (${precorteTotal.toFixed(2)} g)`);
     plan.push({
-      descripcion: `Unificación final: Combina mezcla principal (${mezclaPrincipal.toFixed(2)} g) con sub‑mezcla acondicionada (${subTotal.toFixed(2)} g). Mezcla hasta homogeneizar.\nMezcla Total: ${(mezclaPrincipal + subTotal).toFixed(2)} g`,
-      adicion: subTotal,
+      descripcion: `Unificación final: Combina mezcla principal (${mezclaPrincipal.toFixed(2)} g) con ${partes.join(' + ')}. Mezcla hasta homogeneizar.\nMezcla Total: ${(mezclaPrincipal + unificarTotal).toFixed(2)} g`,
+      adicion: unificarTotal,
       mezclaAntes: mezclaPrincipal,
-      mezclaDespues: mezclaPrincipal + subTotal,
+      mezclaDespues: mezclaPrincipal + unificarTotal,
       ingrediente: 'UNIFICACIÓN',
       fase: 'UNIFICACION',
       energia: { rpm: 300, tiempoSeg: 120, tipoMovimiento: 'circular suave' },

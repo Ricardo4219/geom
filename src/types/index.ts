@@ -29,6 +29,8 @@ export interface HomogeneidadParams {
   ratioTol: number;           // 0–1 (tolerancia ±1:1)
   epsMerge: number;           // 0–1 (g)
   objetivoRSD?: number;       // % — RSD objetivo para convergencia (default 5)
+  precorteEnabled?: boolean;  // habilitar precorte para ingredientes > umbral
+  precorteUmbral?: number;    // % del total para activar precorte (default 20)
 }
 
 // Tipos del algoritmo geom.ts
