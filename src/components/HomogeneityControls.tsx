@@ -101,6 +101,19 @@ export function HomogeneityControls({ params, onParamChange }: Props) {
           style={{ width: 100 }}
         />
       </label>
+      <label style={{ display: 'flex', flexDirection: 'column', fontSize: 12 }}>
+        RSD objetivo (%)
+        <input
+          className="input"
+          type="number"
+          min={0.1}
+          max={20}
+          step={0.1}
+          value={params.objetivoRSD ?? 5}
+          onChange={(e) => onParamChange('objetivoRSD', Math.max(0.1, Math.min(20, +e.target.value)))}
+          style={{ width: 100 }}
+        />
+      </label>
     </div>
   );
 }

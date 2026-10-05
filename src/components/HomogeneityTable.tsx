@@ -23,6 +23,7 @@ export function HomogeneityTable({ pasos, violaciones = [] }: Props) {
             <th style={{ textAlign: 'right', padding: 6 }}>Índice (%)</th>
             <th style={{ textAlign: 'right', padding: 6 }}>Residual (%)</th>
             <th style={{ textAlign: 'right', padding: 6 }}>RSD Est. (%)</th>
+            <th style={{ textAlign: 'right', padding: 6 }}>Energía (RPM/s)</th>
           </tr>
         </thead>
         <tbody>
@@ -45,6 +46,9 @@ export function HomogeneityTable({ pasos, violaciones = [] }: Props) {
                 <td style={{ padding: 6, textAlign: 'right' }}>{((p.indiceHomogeneidad ?? 0) * 100).toFixed(1)}</td>
                 <td style={{ padding: 6, textAlign: 'right' }}>{((p.homogeneidadResidual ?? 0) * 100).toFixed(1)}</td>
                 <td style={{ padding: 6, textAlign: 'right' }}>{(p.rsdEstimado ?? 0).toFixed(1)}</td>
+                <td style={{ padding: 6, textAlign: 'right' }}>
+                  {p.energia ? `${p.energia.rpm ?? '—'} RPM / ${p.energia.tiempoSeg ?? '—'}s` : '—'}
+                </td>
               </tr>
             );
           })}
