@@ -248,8 +248,7 @@ export function wd(
   mallasMap: Record<string, string>,
   params: HomogeneidadParams
 ): ResultadoWd {
-  const { alphaHomog, rsdInicial, metodoHomog, ratioTol, mergeThreshold: _mt, epsMerge } = params;
-  void _mt;
+  const { alphaHomog, rsdInicial, metodoHomog, ratioTol, epsMerge } = params;
 
   if (ingredientes.length === 0) {
     return { planOptimizado: [], pasosGeom: [], violaciones: [], advertenciaGeom: '' };
@@ -372,6 +371,7 @@ export function wd(
       mezclaDespues: mezclaPrincipal + subTotal,
       ingrediente: 'UNIFICACIÓN',
       fase: 'UNIFICACION',
+      energia: { rpm: 300, tiempoSeg: 120, tipoMovimiento: 'circular suave' },
     });
   }
 
@@ -405,6 +405,7 @@ export function wd(
       indiceHomogeneidad: indice,
       rsdEstimado: rsdEst,
       violacion: violCalc,
+      energia: p.energia ?? { rpm: 200, tiempoSeg: 60, tipoMovimiento: 'circular moderado' },
     };
   });
 

@@ -237,7 +237,7 @@ function buildDocDefinition(
     const A = p.metodoHomog ?? 'quadratic';
     const c = (p.alphaHomog ?? 0).toFixed(2);
     const l = p.ratioTol !== undefined ? (p.ratioTol * 100).toFixed(0) : '—';
-    const v2 = p.mergeThreshold !== undefined ? (p.mergeThreshold * 100).toFixed(0) : '—';
+    const v2 = '—'; // mergeThreshold eliminado: ya no aplica
     const y2 = p.epsMerge !== undefined ? p.epsMerge.toFixed(2) : '—';
     const h2 = p.rsdInicial !== undefined ? `${p.rsdInicial.toFixed(1)}%` : '—';
 
