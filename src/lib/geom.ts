@@ -238,10 +238,12 @@ function calcularTandas(escalados: { nombre: string; peso: number }[], mallas: R
 
 function calcularEnergia(adicion: number, mezclaAntes: number, fase: string): { rpm: number; tiempoSeg: number; tipoMovimiento: string } {
   if (fase === 'UNIFICACION') return { rpm: 300, tiempoSeg: 120, tipoMovimiento: 'circular suave' };
-  if (adicion <= 25) return { rpm: 200, tiempoSeg: 120, tipoMovimiento: 'circular moderado' };
-  if (adicion <= 50) return { rpm: 200, tiempoSeg: 150, tipoMovimiento: 'circular moderado' };
-  if (adicion <= 100) return { rpm: 250, tiempoSeg: 180, tipoMovimiento: 'circular suave' };
-  return { rpm: 250, tiempoSeg: 240, tipoMovimiento: 'circular suave' };
+  // Mezcladora V de 1000 g: tiempos escalados por masa de adición
+  if (adicion <= 5) return { rpm: 200, tiempoSeg: 60, tipoMovimiento: 'circular moderado' };   // precorte tanda pequeña
+  if (adicion <= 25) return { rpm: 200, tiempoSeg: 90, tipoMovimiento: 'circular moderado' };
+  if (adicion <= 50) return { rpm: 200, tiempoSeg: 120, tipoMovimiento: 'circular moderado' };
+  if (adicion <= 100) return { rpm: 250, tiempoSeg: 150, tipoMovimiento: 'circular suave' };
+  return { rpm: 250, tiempoSeg: 180, tipoMovimiento: 'circular suave' };
 }
 
 export interface ResultadoWd {
