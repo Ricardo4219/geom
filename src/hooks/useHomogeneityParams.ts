@@ -11,7 +11,6 @@ const DEFAULTS: HomogeneidadParams = {
   rsdInicial: 30,
   metodoHomog: 'quadratic',
   ratioTol: 0.15,
-  mergeThreshold: 0.15,
   epsMerge: 0.05,
 };
 
