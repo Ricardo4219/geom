@@ -236,6 +236,14 @@ function calcularTandas(escalados: { nombre: string; peso: number }[], mallas: R
 // Wd: plan optimizado con sub-mezcla + tabla de homogeneidad
 // ──────────────────────────────────────────────────────────────────────────────
 
+function calcularEnergia(adicion: number, mezclaAntes: number, fase: string): { rpm: number; tiempoSeg: number; tipoMovimiento: string } {
+  if (fase === 'UNIFICACION') return { rpm: 300, tiempoSeg: 120, tipoMovimiento: 'circular suave' };
+  if (adicion <= 25) return { rpm: 200, tiempoSeg: 120, tipoMovimiento: 'circular moderado' };
+  if (adicion <= 50) return { rpm: 200, tiempoSeg: 150, tipoMovimiento: 'circular moderado' };
+  if (adicion <= 100) return { rpm: 250, tiempoSeg: 180, tipoMovimiento: 'circular suave' };
+  return { rpm: 250, tiempoSeg: 240, tipoMovimiento: 'circular suave' };
+}
+
 export interface ResultadoWd {
   planOptimizado: string[];
   pasosGeom: PasoOptimizado[];
@@ -274,7 +282,7 @@ export function wd(
   let precorteTotal = 0;
 
   const tol = epsMerge;
-  const pushPaso = (desc: string, ad: number, antes: number, ing: string, viol: boolean): void => {
+  const pushPaso = (desc: string, ad: number, antes: number, ing: string, viol: boolean, energia?: { rpm?: number; tiempoSeg?: number; tipoMovimiento?: string }): void => {
     plan.push({
       descripcion: desc,
       adicion: ad,
@@ -283,6 +291,7 @@ export function wd(
       ingrediente: ing,
       fase: 'PRINCIPAL',
       violacion: viol,
+      energia,
     });
   };
 
@@ -295,21 +304,23 @@ export function wd(
 
   if (ingredientesPrecorte.length > 0 && excipiente) {
     for (const ing of ingredientesPrecorte) {
-      const porcion = ing.peso; // peso total del ingrediente a precortar
-      const tandas = Math.min(10, Math.max(2, Math.round(porcion / 5))); // 10 tandas o menos si es pequeño
+      const porcion = ing.peso;
+      const tandas = Math.min(10, Math.max(2, Math.round(porcion / 5)));
       const porcionTanda = +(porcion / tandas).toFixed(4);
-      const excipientePorTanda = +(porcionTanda).toFixed(4); // 1:1 con excipiente
+      const excipientePorTanda = +(porcionTanda).toFixed(4);
       const subMezclaTanda = +(porcionTanda * 2).toFixed(4);
 
       for (let t = 0; t < tandas; t++) {
+        const fase = precorteTotal === 0 ? 'SUB' : 'PRINCIPAL';
+        const energia = calcularEnergia(subMezclaTanda, precorteTotal === 0 ? 0 : mezclaPrincipal, fase);
         if (mezclaPrincipal === 0 && precorteTotal === 0) {
-          // Primera tanda: iniciar con sub-mezcla
           pushPaso(
             `Precorte: Inicia ${subMezclaTanda.toFixed(2)} g (${porcionTanda.toFixed(2)} g ${ing.nombre} + ${excipientePorTanda.toFixed(2)} g ${excipiente.nombre}). Mezcla.`,
             subMezclaTanda,
             0,
             `${ing.nombre}+${excipiente.nombre}`,
-            false
+            false,
+            energia
           );
           mezclaPrincipal = subMezclaTanda;
         } else {
@@ -319,7 +330,8 @@ export function wd(
             subMezclaTanda,
             antes,
             `${ing.nombre}+${excipiente.nombre}`,
-            false
+            false,
+            energia
           );
           mezclaPrincipal += subMezclaTanda;
         }
@@ -352,7 +364,7 @@ export function wd(
   const agregar = (nombre: string, pesoObjetivo: number) => {
     let restante = +pesoObjetivo.toFixed(4);
     if (mezclaPrincipal === 0) {
-      pushPaso(`Inicio: Coloca ${restante.toFixed(2)} g de ${nombre}. Mezcla.\nMezcla Acumulada (principal): ${restante.toFixed(2)} g`, restante, 0, nombre, false);
+      pushPaso(`Inicio: Coloca ${restante.toFixed(2)} g de ${nombre}. Mezcla.\nMezcla Acumulada (principal): ${restante.toFixed(2)} g`, restante, 0, nombre, false, calcularEnergia(restante, 0, 'PRINCIPAL'));
       mezclaPrincipal += restante;
       restante = 0;
       return;
@@ -369,7 +381,8 @@ export function wd(
         z,
         mezclaPrincipal,
         nombre,
-        viol
+        viol,
+        calcularEnergia(z, mezclaPrincipal, 'PRINCIPAL')
       );
       mezclaPrincipal += z;
       restante = +(restante - z).toFixed(4);
@@ -383,7 +396,7 @@ export function wd(
     let restante = +(principal.peso - mezclaPrincipal).toFixed(4);
     while (restante > 1e-6) {
       if (mezclaPrincipal === 0) {
-        pushPaso(`Inicio: Coloca ${restante.toFixed(2)} g de ${principal.nombre}. Mezcla.`, restante, 0, principal.nombre, false);
+        pushPaso(`Inicio: Coloca ${restante.toFixed(2)} g de ${principal.nombre}. Mezcla.`, restante, 0, principal.nombre, false, calcularEnergia(restante, 0, 'PRINCIPAL'));
         mezclaPrincipal += restante;
         restante = 0;
         break;
