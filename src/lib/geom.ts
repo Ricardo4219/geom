@@ -236,14 +236,28 @@ function calcularTandas(escalados: { nombre: string; peso: number }[], mallas: R
 // Wd: plan optimizado con sub-mezcla + tabla de homogeneidad
 // ──────────────────────────────────────────────────────────────────────────────
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Energía de mezclado — base científica (ver vault 67-RPM-TIEMPOS-BASE-CIENTIFICA-GEOM)
+//
+// Velocidad: fija por GEOMETRÍA del equipo, no por masa de adición.
+//   Fr = N²·D/g ;  N_crit cuando Fr=1 ;  ω_óptimo = 50-80% de N_crit.
+// Tiempo: depende del NÚMERO DE REVOLUCIONES (150 rev para uniformidad, fuente PK),
+//   no del peso de la adición.  t = N_objetivo / ω.
+//
+// Parámetro por defecto: V de laboratorio estándar (60-300 L) → 15 RPM.
+// AJUSTAR `RPM_EQUIPO` cuando se confirme el modelo/RPM real en la placa de datos.
+// ──────────────────────────────────────────────────────────────────────────────
+
+const RPM_EQUIPO = 15;        // ⚠️ valor por defecto V-lab; reemplazar con dato de placa
+const REV_UNIFORMIDAD = 150;  // revoluciones para alcanzar uniformidad (fuente PK Blenders)
+
 function calcularEnergia(adicion: number, mezclaAntes: number, fase: string): { rpm: number; tiempoSeg: number; tipoMovimiento: string } {
-  if (fase === 'UNIFICACION') return { rpm: 300, tiempoSeg: 120, tipoMovimiento: 'circular suave' };
-  // Mezcladora V de 1000 g: tiempos escalados por masa de adición
-  if (adicion <= 5) return { rpm: 200, tiempoSeg: 60, tipoMovimiento: 'circular moderado' };   // precorte tanda pequeña
-  if (adicion <= 25) return { rpm: 200, tiempoSeg: 90, tipoMovimiento: 'circular moderado' };
-  if (adicion <= 50) return { rpm: 200, tiempoSeg: 120, tipoMovimiento: 'circular moderado' };
-  if (adicion <= 100) return { rpm: 250, tiempoSeg: 150, tipoMovimiento: 'circular suave' };
-  return { rpm: 250, tiempoSeg: 180, tipoMovimiento: 'circular suave' };
+  void adicion;
+  void mezclaAntes;
+  // Tiempo = revoluciones objetivo / velocidad (misma velocidad en todas las fases)
+  const tiempoSeg = Math.round((REV_UNIFORMIDAD / RPM_EQUIPO) * 60);
+  const tipoMovimiento = fase === 'UNIFICACION' ? 'cascada (uniformidad final)' : 'cascada (difusión)';
+  return { rpm: RPM_EQUIPO, tiempoSeg, tipoMovimiento };
 }
 
 export interface ResultadoWd {
