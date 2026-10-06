@@ -297,43 +297,56 @@ export function wd(
     });
   };
 
-  // 1.5) Precorte: si ingrediente > umbral % del total, pre-diluir 1:1 con excipiente
-  const ingredientesPrecorte = precorteEnabled
-    ? ingredientes.filter((i) => (i.peso / totalPesos) * 100 > umbral)
-    : [];
-  const nombresPrecorte = new Set(ingredientesPrecorte.map((i) => i.nombre));
-  const excipiente = ingredientes.find((i) => !nombresPrecorte.has(i.nombre) && i.peso === Math.max(...ingredientes.filter((x) => !nombresPrecorte.has(x.nombre)).map((x) => x.peso)));
+  // 1.5) Precorte selectivo: solo activos que requieren biodisponibilidad
+  // Fucoxina + Piperina necesitan precorte 1:1 con MCT (vehículo lipídico)
+  // Jengibre y MCT base se mezclan directamente (pesos similares, ratio ≈1:1)
+  const nombresPrecorte = precorteEnabled
+    ? new Set(['Fucoxina', 'Piperina', 'fucoxina', 'piperina'])
+    : new Set<string>();
+  const esPrecorte = (nombre: string) => nombresPrecorte.has(nombre);
 
-  if (ingredientesPrecorte.length > 0 && excipiente) {
+  // Separar ingredientes en precorte y base
+  const ingredientesPrecorte = ingredientes.filter((i) => esPrecorte(i.nombre));
+  const ingredientesBase = ingredientes.filter((i) => !esPrecorte(i.nombre));
+
+  // Excipiente precorte: MCT (vehículo lipídico para biodisponibilidad)
+  const mctIng = ingredientesBase.find((i) => i.nombre === 'MCT' || i.nombre === 'mct');
+  const excipientePrecorte = mctIng || ingredientesBase.sort((a, b) => b.peso - a.peso)[0];
+
+  if (ingredientesPrecorte.length > 0 && excipientePrecorte) {
     for (const ing of ingredientesPrecorte) {
       const porcion = ing.peso;
       const tandas = Math.min(10, Math.max(2, Math.round(porcion / 5)));
       const porcionTanda = +(porcion / tandas).toFixed(4);
-      const excipientePorTanda = +(porcionTanda).toFixed(4);
-      const subMezclaTanda = +(porcionTanda * 2).toFixed(4);
+      const excipientePorTanda = +(porcionTanda * 0.8).toFixed(4); // MCT parcial (vehículo)
+      const subMezclaTanda = +(porcionTanda + excipientePorTanda).toFixed(4);
 
       for (let t = 0; t < tandas; t++) {
         const fase = precorteTotal === 0 ? 'SUB' : 'PRINCIPAL';
         const energia = calcularEnergia(subMezclaTanda, precorteTotal === 0 ? 0 : mezclaPrincipal, fase);
+        // Tiempo mínimo 90s para trazas en lote grande (V-1000g)
+        const energiaAjustada = energia.tiempoSeg < 90
+          ? { ...energia, tiempoSeg: 90 }
+          : energia;
         if (mezclaPrincipal === 0 && precorteTotal === 0) {
           pushPaso(
-            `Precorte: Inicia ${subMezclaTanda.toFixed(2)} g (${porcionTanda.toFixed(2)} g ${ing.nombre} + ${excipientePorTanda.toFixed(2)} g ${excipiente.nombre}). Mezcla.`,
+            `Precorte: Inicia ${subMezclaTanda.toFixed(2)} g (${porcionTanda.toFixed(2)} g ${ing.nombre} + ${excipientePorTanda.toFixed(2)} g ${excipientePrecorte.nombre}). Mezcla.`,
             subMezclaTanda,
             0,
-            `${ing.nombre}+${excipiente.nombre}`,
+            `${ing.nombre}+${excipientePrecorte.nombre}`,
             false,
-            energia
+            energiaAjustada
           );
           mezclaPrincipal = subMezclaTanda;
         } else {
           const antes = mezclaPrincipal;
           pushPaso(
-            `Precorte: Añade ${subMezclaTanda.toFixed(2)} g (${porcionTanda.toFixed(2)} g ${ing.nombre} + ${excipientePorTanda.toFixed(2)} g ${excipiente.nombre}). Mezcla.`,
+            `Precorte: Añade ${subMezclaTanda.toFixed(2)} g (${porcionTanda.toFixed(2)} g ${ing.nombre} + ${excipientePorTanda.toFixed(2)} g ${excipientePrecorte.nombre}). Mezcla.`,
             subMezclaTanda,
             antes,
-            `${ing.nombre}+${excipiente.nombre}`,
+            `${ing.nombre}+${excipientePrecorte.nombre}`,
             false,
-            energia
+            energiaAjustada
           );
           mezclaPrincipal += subMezclaTanda;
         }
@@ -342,7 +355,8 @@ export function wd(
     }
   }
 
-  // 2) Sub-mezcla acondicionada (si aplica) — solo ingredientes NO precortados
+  // 2) Lote base: ingredientes NO precortados (Jengibre + MCT restante)
+  // Se mezclan directamente sin precorte (pesos similares, ratio ≈1:1)
   if (sub && principal && sub.nombre !== principal.nombre) {
     const t = sub.peso;
     const D = Math.min(principal.peso, t);
