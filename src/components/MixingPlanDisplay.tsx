@@ -36,10 +36,10 @@ export function MixingPlanDisplay({
         el riesgo de error y asegura un resultado mucho más homogéneo y validable.
       </p>
       <p>
-        <strong>Total de la Mezcla:</strong> {totalObjetivo.toFixed(2)} g
+        <span className="badge">Total de la Mezcla: {totalObjetivo.toFixed(2)} g</span>
       </p>
 
-      <h3 style={{ margin: '6px 0' }}>Paso 0: Preparación de Materias Primas</h3>
+      <h3 style={{ margin: '14px 0 6px' }}>Paso 0: Preparación de Materias Primas</h3>
       <ul className="list">
         <li>
           Tamizado: Pasa cada uno de los ingredientes, por separado, a través de un tamiz de malla 80.
