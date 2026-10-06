@@ -124,57 +124,8 @@ function buildDocDefinition(
 
   const e: PasoOptimizado[] = p.pasosGeom ?? [];
 
-  if (prepesadoTandas && prepesadoTandas.length) {
-    ke.push({ text: 'Prepesado (tandas sugeridas)', style: 'h2', margin: [0, 12, 0, 6] });
-    const filasPre: unknown[][] = [[{ text: 'Ingrediente', style: 'tableHeader' }, { text: 'Grupos', style: 'tableHeader' }]];
-
-    const conMalla = ingredientes.map((i) => ({ ...i, malla: mallas[i.nombre] ?? '80' }));
-    const v = conMalla.find((i) => i.malla !== '80');
-    const y = v ? conMalla.filter((i) => i.nombre !== v.nombre) : conMalla;
-    const h = v ? [...y].sort((a, b) => b.peso - a.peso)[0] : undefined;
-    const f = v && h ? Math.min(v.peso, h.peso) : undefined;
-
-    for (const ing of prepesadoTandas) {
-      const grupos = ing.grupos.map((g) => {
-        let nota = '';
-        if (v && ing.nombre === v.nombre) nota = ' (Sub‑mezcla)';
-        else if (h && ing.nombre === h.nombre && f !== undefined && Math.abs(g.peso - f) <= 0.01) {
-          nota = ' (Sub‑mezcla)';
-        } else if (h && ing.nombre === h.nombre) {
-          nota = ' (Resto)';
-        }
-        return `${g.cantidad} de ${g.peso.toFixed(2)} g${nota}`;
-      });
-      grupos.push(`Total ${ing.total.toFixed(2)} g`);
-      const celdas = grupos.map((g, idx) => ({
-        text: g,
-        alignment: 'center' as const,
-        margin: [6, 3, 6, 3] as [number, number, number, number],
-        fillColor: idx === grupos.length - 1 ? '#eef7ff' : undefined,
-      }));
-      const tablaG = {
-        table: {
-          widths: new Array(celdas.length).fill('auto') as string[],
-          body: [celdas],
-        },
-        layout: {
-          hLineWidth: () => 1,
-          vLineWidth: () => 1,
-          hLineColor: () => '#cfd8dc',
-          vLineColor: () => '#cfd8dc',
-        },
-        margin: [0, 2, 0, 2] as [number, number, number, number],
-      };
-      filasPre.push([{ text: ing.nombre }, tablaG]);
-    }
-    ke.push({
-      table: { widths: ['auto', '*'] as const, body: filasPre },
-      layout: 'lightHorizontalLines',
-      margin: [0, 0, 0, 8],
-    });
-  }
-
-  // Prepesado derivado del plan real (pesos exactos por tanda)
+  // Prepesado derivado del plan real (pesos exactos por tanda).
+  // (Se eliminó el bloque "tandas sugeridas" obsoleto del algoritmo con sub-mezcla por malla.)
   if (e.length) {
     ke.push({ text: 'Prepesado según plan (pesos exactos)', style: 'h2', margin: [0, 12, 0, 6] });
     const filasPlan: unknown[][] = [[{ text: 'Ingrediente', style: 'tableHeader' }, { text: 'Tandas', style: 'tableHeader' }, { text: 'Peso total (g)', style: 'tableHeader' }]];
@@ -239,7 +190,7 @@ function buildDocDefinition(
   });
 
   // Tabla del plan
-  const filasPlan: string[][] = [['Paso', 'Procedimiento', 'Mezcla accum. (g)', 'Tiempo']];
+  const filasPlan: string[][] = [['Paso', 'Procedimiento', 'Mezcla accum. (g)', 'Energía (RPM / s)']];
   const r: string[] = p.planOptimizado ?? [];
   const n: { n: number; texto: string; mezcla: string; tiempo: string }[] = [];
   if (r.length && e.length === r.length) {
@@ -277,13 +228,12 @@ function buildDocDefinition(
     const A = p.metodoHomog ?? 'quadratic';
     const c = (p.alphaHomog ?? 0).toFixed(2);
     const l = p.ratioTol !== undefined ? (p.ratioTol * 100).toFixed(0) : '—';
-    const v2 = '—'; // mergeThreshold eliminado: ya no aplica
     const y2 = p.epsMerge !== undefined ? p.epsMerge.toFixed(2) : '—';
     const h2 = p.rsdInicial !== undefined ? `${p.rsdInicial.toFixed(1)}%` : '—';
 
     ke.push({ text: `Homogeneidad (α = ${c}, método=${A})`, style: 'h2', margin: [0, 12, 0, 6] });
     ke.push({
-      text: `Parámetros: RSD0=${h2} · Tol±=${l}%  ·  Merge%=${v2}%  ·  ResiduoAbs=${y2} g`,
+      text: `Parámetros: RSD0=${h2} · Tol±=${l}%  ·  ResiduoAbs=${y2} g`,
       margin: [0, 0, 0, 4],
       fontSize: 8,
       color: '#555',
