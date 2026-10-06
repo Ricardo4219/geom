@@ -299,9 +299,10 @@ export function wd(
 
   // 1.5) Precorte selectivo: solo activos que requieren biodisponibilidad
   // Fucoxina + Piperina necesitan precorte 1:1 con MCT (vehículo lipídico)
-  // Jengibre y MCT base se mezclan directamente (pesos similares, ratio ≈1:1)
+  // Jengibre trabaja solo (TRPV1 periférico, mecanismo independiente)
+  // MCT base se mezcla directamente con Jengibre (lote base)
   const nombresPrecorte = precorteEnabled
-    ? new Set(['Fucoxina', 'Piperina', 'fucoxina', 'piperina'])
+    ? new Set(['Fucoxina', 'Piperina', 'fucoxina', 'piperina', 'Alga Japonica Fucoxina Ratio 10:1', 'Pimienta negra 95%'])
     : new Set<string>();
   const esPrecorte = (nombre: string) => nombresPrecorte.has(nombre);
 
@@ -310,8 +311,11 @@ export function wd(
   const ingredientesBase = ingredientes.filter((i) => !esPrecorte(i.nombre));
 
   // Excipiente precorte: MCT (vehículo lipídico para biodisponibilidad)
-  const mctIng = ingredientesBase.find((i) => i.nombre === 'MCT' || i.nombre === 'mct');
+  const mctIng = ingredientesBase.find((i) => i.nombre === 'MCT' || i.nombre === 'mct' || i.nombre.includes('MCT') || i.nombre.includes('Triglicéridos'));
   const excipientePrecorte = mctIng || ingredientesBase.sort((a, b) => b.peso - a.peso)[0];
+
+  // MCT usado en precorte (se descuenta del lote base)
+  let mctUsadoPrecorte = 0;
 
   if (ingredientesPrecorte.length > 0 && excipientePrecorte) {
     for (const ing of ingredientesPrecorte) {
@@ -320,6 +324,7 @@ export function wd(
       const porcionTanda = +(porcion / tandas).toFixed(4);
       const excipientePorTanda = +(porcionTanda * 0.8).toFixed(4); // MCT parcial (vehículo)
       const subMezclaTanda = +(porcionTanda + excipientePorTanda).toFixed(4);
+      mctUsadoPrecorte += excipientePorTanda * tandas;
 
       for (let t = 0; t < tandas; t++) {
         const fase = precorteTotal === 0 ? 'SUB' : 'PRINCIPAL';
@@ -357,6 +362,7 @@ export function wd(
 
   // 2) Lote base: ingredientes NO precortados (Jengibre + MCT restante)
   // Se mezclan directamente sin precorte (pesos similares, ratio ≈1:1)
+  // MCT restante = MCT total - MCT usado en precorte
   if (sub && principal && sub.nombre !== principal.nombre) {
     const t = sub.peso;
     const D = Math.min(principal.peso, t);
@@ -372,9 +378,10 @@ export function wd(
     });
   }
 
-  // 3) Ingredientes principales (excluyendo sub y principal usado en sub)
-  const principales = conMalla
-    .filter((i) => (!sub || i.nombre !== sub.nombre) && (!principal || i.nombre !== principal.nombre) && !nombresPrecorte.has(i.nombre))
+  // 3) Ingredientes principales del lote base (Jengibre + MCT restante)
+  // Excluye: ingredientes precortados, sub-mezcla, y principal ya usado
+  const principales = ingredientesBase
+    .filter((i) => (!sub || i.nombre !== sub.nombre) && (!principal || i.nombre !== principal.nombre))
     .sort((a, b) => a.peso - b.peso);
 
   const agregar = (nombre: string, pesoObjetivo: number) => {
@@ -405,7 +412,12 @@ export function wd(
     }
   };
 
-  principales.forEach((p) => agregar(p.nombre, p.peso));
+  // Descontar MCT usado en precorte del lote base
+  principales.forEach((p) => {
+    const esMCT = p.nombre === 'MCT' || p.nombre === 'mct' || p.nombre.includes('MCT') || p.nombre.includes('Triglicéridos');
+    const pesoAjustado = esMCT ? Math.max(0, p.peso - mctUsadoPrecorte) : p.peso;
+    if (pesoAjustado > 0) agregar(p.nombre, pesoAjustado);
+  });
 
   // 4) Terminar de añadir el "principal" original (lo que no se usó) — solo si no fue precortado
   if (sub && principal && sub.nombre !== principal.nombre && !nombresPrecorte.has(principal.nombre)) {
