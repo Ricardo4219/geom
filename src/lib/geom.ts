@@ -239,17 +239,17 @@ function calcularTandas(escalados: { nombre: string; peso: number }[], mallas: R
 // ──────────────────────────────────────────────────────────────────────────────
 // Energía de mezclado — base científica (ver vault 67-RPM-TIEMPOS-BASE-CIENTIFICA-GEOM)
 //
-// Velocidad: fija por GEOMETRÍA del equipo, no por masa de adición.
-//   Fr = N²·D/g ;  N_crit cuando Fr=1 ;  ω_óptimo = 50-80% de N_crit.
-// Tiempo: depende del NÚMERO DE REVOLUCIONES (150 rev para uniformidad, fuente PK),
-//   no del peso de la adición.  t = N_objetivo / ω.
+// EQUIPO REAL: VEVOR VH-2 (V Series Mixer)
+//   Motor 60 W · Barril 2 L · Volumen trabajo 1.2 L · Llenado óptimo 0.7 kg
+//   Velocidad: 0-24 r/min (dato de fabricante VEVOR)
+//   Diámetro equivalente barril ≈ 15.6 cm → velocidad crítica ≈ 475 RPM
+//   A 24 RPM: Fr = 0.0025 << 1 → régimen de CASCADA (correcto, sin centrifugado)
 //
-// Parámetro por defecto: V de laboratorio estándar (60-300 L) → 15 RPM.
-// AJUSTAR `RPM_EQUIPO` cuando se confirme el modelo/RPM real en la placa de datos.
+// Velocidad: fija por GEOMETRÍA. Tiempo: por NÚMERO DE REVOLUCIONES (150 rev, fuente PK).
 // ──────────────────────────────────────────────────────────────────────────────
 
-const RPM_EQUIPO = 15;        // ⚠️ valor por defecto V-lab; reemplazar con dato de placa
-const REV_UNIFORMIDAD = 150;  // revoluciones para alcanzar uniformidad (fuente PK Blenders)
+const RPM_EQUIPO = 24;        // VEVOR VH-2: 0-24 r/min (dato de fabricante)
+const REV_UNIFORMIDAD = 150;  // revoluciones para uniformidad (fuente PK Blenders)
 
 function calcularEnergia(adicion: number, mezclaAntes: number, fase: string): { rpm: number; tiempoSeg: number; tipoMovimiento: string } {
   void adicion;
