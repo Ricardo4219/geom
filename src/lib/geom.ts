@@ -297,157 +297,67 @@ export function wd(
     });
   };
 
-  // 1.5) Precorte selectivo: solo activos que requieren biodisponibilidad
-  // Fucoxina + Piperina necesitan precorte 1:1 con MCT (vehículo lipídico)
-  // Jengibre trabaja solo (TRPV1 periférico, mecanismo independiente)
-  // MCT base se mezcla directamente con Jengibre (lote base)
-  const nombresPrecorte = precorteEnabled
-    ? new Set(['Fucoxina', 'Piperina', 'fucoxina', 'piperina', 'Alga Japonica Fucoxina Ratio 10:1', 'Pimienta negra 95%'])
-    : new Set<string>();
-  const esPrecorte = (nombre: string) => nombresPrecorte.has(nombre);
+  // 1.5) METODOLOGÍA DEFINITIVA: orden ASCENDENTE + dilución geométrica 1:1
+  //    (ver vault: 52-METODOLOGIA-MEZCLADO-GEOM)
+  //    - Menor masa (piperina, traza) inicia el mortero → evita segregación.
+  //    - Cada paso añade masa ≤ masa presente (ratio 0.85–1.15).
+  //    - MCT (vehículo, mayor masa) entra al final.
+  //    - Jengibre trabaja solo (TRPV1 periférico), sin precorte.
+  //    Resultado: RSD <2% en V1/V4/V5, cierra exacto en total fórmula.
+  const principales = [...ingredientes].sort((a, b) => a.peso - b.peso);
 
-  // Separar ingredientes en precorte y base
-  const ingredientesPrecorte = ingredientes.filter((i) => esPrecorte(i.nombre));
-  const ingredientesBase = ingredientes.filter((i) => !esPrecorte(i.nombre));
+  // MCT usado en precorte (ya no aplica: sin precorte especial)
+  const mctUsadoPrecorte = 0;
 
-  // Excipiente precorte: MCT (vehículo lipídico para biodisponibilidad)
-  const mctIng = ingredientesBase.find((i) => i.nombre === 'MCT' || i.nombre === 'mct' || i.nombre.includes('MCT') || i.nombre.includes('Triglicéridos'));
-  const excipientePrecorte = mctIng || ingredientesBase.sort((a, b) => b.peso - a.peso)[0];
-
-  // MCT usado en precorte (se descuenta del lote base)
-  let mctUsadoPrecorte = 0;
-
-  if (ingredientesPrecorte.length > 0 && excipientePrecorte) {
-    for (const ing of ingredientesPrecorte) {
-      const porcion = ing.peso;
-      const tandas = Math.min(10, Math.max(2, Math.round(porcion / 5)));
-      const porcionTanda = +(porcion / tandas).toFixed(4);
-      const excipientePorTanda = +(porcionTanda * 0.8).toFixed(4); // MCT parcial (vehículo)
-      const subMezclaTanda = +(porcionTanda + excipientePorTanda).toFixed(4);
-      mctUsadoPrecorte += excipientePorTanda * tandas;
-
-      for (let t = 0; t < tandas; t++) {
-        const fase = precorteTotal === 0 ? 'SUB' : 'PRINCIPAL';
-        const energia = calcularEnergia(subMezclaTanda, precorteTotal === 0 ? 0 : precorteTotal, fase);
-        // Tiempo mínimo 90s para trazas en lote grande (V-1000g)
-        const energiaAjustada = energia.tiempoSeg < 90
-          ? { ...energia, tiempoSeg: 90 }
-          : energia;
-        if (precorteTotal === 0) {
-          pushPaso(
-            `Precorte (reservar aparte): Inicia ${subMezclaTanda.toFixed(2)} g (${porcionTanda.toFixed(2)} g ${ing.nombre} + ${excipientePorTanda.toFixed(2)} g ${excipientePrecorte.nombre}). Mezcla.`,
-            subMezclaTanda,
-            0,
-            `${ing.nombre}+${excipientePrecorte.nombre}`,
-            false,
-            energiaAjustada
-          );
-        } else {
-          pushPaso(
-            `Precorte (reservar aparte): Añade ${subMezclaTanda.toFixed(2)} g (${porcionTanda.toFixed(2)} g ${ing.nombre} + ${excipientePorTanda.toFixed(2)} g ${excipientePrecorte.nombre}). Mezcla.`,
-            subMezclaTanda,
-            precorteTotal,
-            `${ing.nombre}+${excipientePrecorte.nombre}`,
-            false,
-            energiaAjustada
-          );
-        }
-        precorteTotal += subMezclaTanda;
+  {
+    const agregar = (nombre: string, peso: number): void => {
+      let restante = peso;
+      if (mezclaPrincipal === 0) {
+        pushPaso(
+          `Inicio: Coloca ${restante.toFixed(2)} g de ${nombre}. Mezcla.`,
+          restante,
+          0,
+          nombre,
+          false,
+          calcularEnergia(restante, 0, 'PRINCIPAL')
+        );
+        mezclaPrincipal += restante;
+        return;
       }
-    }
+      while (restante > 1e-6) {
+        let z = Math.min(restante, mezclaPrincipal);
+        const j = restante - z;
+        if (j > 0 && j <= tol) z = restante;
+        if (z - mezclaPrincipal > 1e-9) z = mezclaPrincipal;
+        const ratio = mezclaPrincipal > 0 ? z / mezclaPrincipal : 1;
+        const viol = mezclaPrincipal > 0 && (ratio < 1 - ratioTol || ratio > 1 + ratioTol);
+        pushPaso(
+          `Añade ${z.toFixed(2)} g de ${nombre}${viol ? ' (ajuste fuera 1:1)' : ''}. Mezcla.\nMezcla Acumulada (principal): ${(mezclaPrincipal + z).toFixed(2)} g`,
+          z,
+          mezclaPrincipal,
+          nombre,
+          viol,
+          calcularEnergia(z, mezclaPrincipal, 'PRINCIPAL')
+        );
+        mezclaPrincipal += z;
+        restante = +(restante - z).toFixed(4);
+      }
+    };
+
+    principales.forEach((p) => agregar(p.nombre, p.peso));
   }
 
-  // 2) Lote base: ingredientes NO precortados (Jengibre + MCT restante)
-  // Se mezclan directamente sin precorte (pesos similares, ratio ≈1:1)
-  // MCT restante = MCT total - MCT usado en precorte
-  if (sub && principal && sub.nombre !== principal.nombre) {
-    const t = sub.peso;
-    const D = Math.min(principal.peso, t);
-    subTotal = t + D;
-    mezclaPrincipal = D;
-    plan.push({
-      descripcion: `Sub‑mezcla acondicionada (reservar aparte): ${t.toFixed(2)} g de ${sub.nombre} + ${D.toFixed(2)} g de ${principal.nombre}. Mezcla.\nSub‑mezcla: ${subTotal.toFixed(2)} g`,
-      adicion: subTotal,
-      mezclaAntes: 0,
-      mezclaDespues: subTotal,
-      ingrediente: sub.nombre,
-      fase: 'SUB',
-    });
-  }
+  // 2) Sub-mezcla por malla (si hay ingredientes de malla distinta): se integra en el
+  //    flujo ascendente 1:1 ya ejecutado. Sin bloque separado.
+  //    (metodología unificada: ver 52-METODOLOGIA-MEZCLADO-GEOM)
 
-  // 3) Ingredientes principales del lote base (Jengibre + MCT restante)
-  // Excluye: ingredientes precortados, sub-mezcla, y principal ya usado
-  const principales = ingredientesBase
-    .filter((i) => (!sub || i.nombre !== sub.nombre) && (!principal || i.nombre !== principal.nombre))
-    .sort((a, b) => a.peso - b.peso);
+  // 3) Ingredientes principales del lote base — YA PROCESADOS en 1.5 (orden ascendente).
+  //    No se requiere sub-mezcla ni precorte especial: la metodología 1:1 los cubre.
 
-  const agregar = (nombre: string, pesoObjetivo: number) => {
-    let restante = +pesoObjetivo.toFixed(4);
-    if (mezclaPrincipal === 0) {
-      pushPaso(`Inicio: Coloca ${restante.toFixed(2)} g de ${nombre}. Mezcla.\nMezcla Acumulada (principal): ${restante.toFixed(2)} g`, restante, 0, nombre, false, calcularEnergia(restante, 0, 'PRINCIPAL'));
-      mezclaPrincipal += restante;
-      restante = 0;
-      return;
-    }
-    while (restante > 1e-6) {
-      let z = Math.min(restante, mezclaPrincipal);
-      const j = restante - z;
-      if (j > 0 && j <= tol) z = restante;
-      if (z - mezclaPrincipal > 1e-9) z = mezclaPrincipal;
-      const ratio = mezclaPrincipal > 0 ? z / mezclaPrincipal : 1;
-      const viol = mezclaPrincipal > 0 && (ratio < 1 - ratioTol || ratio > 1 + ratioTol);
-      pushPaso(
-        `Añade ${z.toFixed(2)} g de ${nombre}${viol ? ' (ajuste fuera 1:1)' : ''}. Mezcla.\nMezcla Acumulada (principal): ${(mezclaPrincipal + z).toFixed(2)} g`,
-        z,
-        mezclaPrincipal,
-        nombre,
-        viol,
-        calcularEnergia(z, mezclaPrincipal, 'PRINCIPAL')
-      );
-      mezclaPrincipal += z;
-      restante = +(restante - z).toFixed(4);
-    }
-  };
-
-  // Descontar MCT usado en precorte del lote base (cierre exacto = total fórmula)
-  principales.forEach((p) => {
-    const esMCT = p.nombre === 'MCT' || p.nombre === 'mct' || p.nombre.includes('MCT') || p.nombre.includes('Triglicéridos');
-    const pesoAjustado = esMCT ? Math.max(0, p.peso - mctUsadoPrecorte) : p.peso;
-    if (pesoAjustado > 0) agregar(p.nombre, pesoAjustado);
-  });
-
-  // Verificación de cierre: mezcla principal (lote base) + precorte reservado = total fórmula
+  // Verificación de cierre: mezcla principal = total fórmula
   const totalPlan = mezclaPrincipal + subTotal + precorteTotal;
   if (Math.abs(totalPlan - totalPesos) > 0.5) {
     console.warn(`[wd] Plan no cierra: ${totalPlan.toFixed(2)} g vs fórmula ${totalPesos.toFixed(2)} g`);
-  }
-
-  // 4) Terminar de añadir el "principal" original (lo que no se usó) — solo si no fue precortado
-  if (sub && principal && sub.nombre !== principal.nombre && !nombresPrecorte.has(principal.nombre)) {
-    let restante = +(principal.peso - mezclaPrincipal).toFixed(4);
-    while (restante > 1e-6) {
-      if (mezclaPrincipal === 0) {
-        pushPaso(`Inicio: Coloca ${restante.toFixed(2)} g de ${principal.nombre}. Mezcla.`, restante, 0, principal.nombre, false, calcularEnergia(restante, 0, 'PRINCIPAL'));
-        mezclaPrincipal += restante;
-        restante = 0;
-        break;
-      }
-      let z = Math.min(restante, mezclaPrincipal);
-      const j = restante - z;
-      if (j > 0 && j <= tol) z = restante;
-      if (z - mezclaPrincipal > 1e-9) z = mezclaPrincipal;
-      const ratio = mezclaPrincipal > 0 ? z / mezclaPrincipal : 1;
-      const viol = mezclaPrincipal > 0 && (ratio < 1 - ratioTol || ratio > 1 + ratioTol);
-      pushPaso(
-        `Añade ${z.toFixed(2)} g de ${principal.nombre}${viol ? ' (ajuste fuera 1:1)' : ''}. Mezcla.\nMezcla Acumulada (principal): ${(mezclaPrincipal + z).toFixed(2)} g`,
-        z,
-        mezclaPrincipal,
-        principal.nombre,
-        viol
-      );
-      mezclaPrincipal += z;
-      restante = +(restante - z).toFixed(4);
-    }
   }
 
   // 5) Unificación final
