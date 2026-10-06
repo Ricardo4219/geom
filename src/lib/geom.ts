@@ -272,8 +272,7 @@ export function wd(
   mallasMap: Record<string, string>,
   params: HomogeneidadParams
 ): ResultadoWd {
-  const { alphaHomog, rsdInicial, metodoHomog, ratioTol, epsMerge, objetivoRSD, precorteEnabled, precorteUmbral } = params;
-  const umbral = precorteUmbral ?? 20; // % del total
+  const { alphaHomog, rsdInicial, metodoHomog, ratioTol, epsMerge } = params;
   const totalPesos = ingredientes.reduce((s, i) => s + i.peso, 0);
 
   if (ingredientes.length === 0) {

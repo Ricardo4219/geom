@@ -101,44 +101,6 @@ export function HomogeneityControls({ params, onParamChange }: Props) {
           style={{ width: 100 }}
         />
       </label>
-      <label style={{ display: 'flex', flexDirection: 'column', fontSize: 12 }}>
-        RSD objetivo (%)
-        <input
-          className="input"
-          type="number"
-          min={0.1}
-          max={20}
-          step={0.1}
-          value={params.objetivoRSD ?? 5}
-          onChange={(e) => onParamChange('objetivoRSD', Math.max(0.1, Math.min(20, +e.target.value)))}
-          style={{ width: 100 }}
-        />
-      </label>
-      <label style={{ display: 'flex', flexDirection: 'column', fontSize: 12 }}>
-        Precorte
-        <select
-          className="select"
-          value={params.precorteEnabled ? 'on' : 'off'}
-          onChange={(e) => onParamChange('precorteEnabled', e.target.value === 'on' ? true : false)}
-          style={{ width: 100 }}
-        >
-          <option value="off">Off</option>
-          <option value="on">On</option>
-        </select>
-      </label>
-      <label style={{ display: 'flex', flexDirection: 'column', fontSize: 12 }}>
-        Umbral %
-        <input
-          className="input"
-          type="number"
-          min={5}
-          max={50}
-          step={5}
-          value={params.precorteUmbral ?? 20}
-          onChange={(e) => onParamChange('precorteUmbral', Math.max(5, Math.min(50, +e.target.value)))}
-          style={{ width: 80 }}
-        />
-      </label>
     </div>
   );
 }

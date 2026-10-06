@@ -8,9 +8,6 @@ const DEFAULTS: HomogeneidadParams = {
   metodoHomog: 'quadratic',
   ratioTol: 0.15,
   epsMerge: 0.05,
-  objetivoRSD: 5,
-  precorteEnabled: false,
-  precorteUmbral: 20,
 };
 
 export function useHomogeneityParams() {
