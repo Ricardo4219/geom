@@ -223,32 +223,54 @@ function buildDocDefinition(
           'Principio: Siempre se añade el siguiente ingrediente a la mezcla acumulada, en una cantidad aproximadamente igual al total de la mezcla ya existente.',
         alignment: 'justify',
       },
+      {
+        text:
+          'Giro del tambor: arranca en el sentido que tenga la máquina (da igual cuál). ' +
+          'A media operación de CADA paso, INVIERTE el sentido de giro (Mantén → Reversa). ' +
+          'Si el paso dura >6 min, invierte otra vez cada 3 min. ' +
+          'Al terminar el paso, deja el tambor en el sentido opuesto antes de añadir el siguiente ingrediente.',
+        alignment: 'justify',
+      },
     ],
     margin: [0, 0, 0, 6],
   });
 
   // Tabla del plan
-  const filasPlan: string[][] = [['Paso', 'Procedimiento', 'Mezcla accum. (g)', 'Energía (RPM / s)']];
+  const filasPlan: string[][] = [['Paso', 'Procedimiento', 'Mezcla accum. (g)', 'Energía (RPM / s)', 'Giro del tambor']];
   const r: string[] = p.planOptimizado ?? [];
-  const n: { n: number; texto: string; mezcla: string; tiempo: string }[] = [];
+  const n: { n: number; texto: string; mezcla: string; tiempo: string; giro: string }[] = [];
+  // Reversión de giro: a la mitad de cada paso (rompe patrones de segregación; Muzzio 2003)
+  const textoGiro = (tiempoSeg: number, index: number) => {
+    const sentido = index % 2 === 0 ? 'A favor de las manecillas' : 'Contra las manecillas';
+    const mitad = Math.round(tiempoSeg / 2);
+    if (tiempoSeg > 360) {
+      const tercio = Math.round(tiempoSeg / 3);
+      return `${sentido} → INVERTIR a los ${tercio}s → INVERTIR a los ${tercio * 2}s`;
+    }
+    return `${sentido} → INVERTIR a los ${mitad}s`;
+  };
   if (r.length && e.length === r.length) {
     for (let i = 0; i < r.length; i++) {
       const c = e[i];
+      const seg = c?.energia?.tiempoSeg ?? 0;
       const tiempo = c?.energia ? `${c.energia.rpm ?? '—'} RPM / ${c.energia.tiempoSeg ?? '—'}s` : '—';
-      n.push({ n: i + 1, texto: r[i] ?? '', mezcla: ((c?.mezclaDespues ?? 0) as unknown as number).toFixed(2), tiempo });
+      const giro = c?.energia ? textoGiro(seg, i) : '—';
+      n.push({ n: i + 1, texto: r[i] ?? '', mezcla: ((c?.mezclaDespues ?? 0) as unknown as number).toFixed(2), tiempo, giro });
     }
   } else if (e.length) {
     e.forEach((c, i) => {
+      const seg = c.energia?.tiempoSeg ?? 0;
       const tiempo = c.energia ? `${c.energia.rpm ?? '—'} RPM / ${c.energia.tiempoSeg ?? '—'}s` : '—';
-      n.push({ n: i + 1, texto: c.descripcion, mezcla: c.mezclaDespues.toFixed(2), tiempo });
+      const giro = c.energia ? textoGiro(seg, i) : '—';
+      n.push({ n: i + 1, texto: c.descripcion, mezcla: c.mezclaDespues.toFixed(2), tiempo, giro });
     });
   } else {
-    n.push({ n: 1, texto: 'No hay ingredientes para mezclar.', mezcla: '-', tiempo: '—' });
+    n.push({ n: 1, texto: 'No hay ingredientes para mezclar.', mezcla: '-', tiempo: '—', giro: '—' });
   }
-  for (const x of n) filasPlan.push([String(x.n), x.texto, x.mezcla, x.tiempo]);
+  for (const x of n) filasPlan.push([String(x.n), x.texto, x.mezcla, x.tiempo, x.giro]);
   ke.push({
     table: {
-      widths: ['auto', '*', 'auto', 'auto'] as const,
+      widths: ['auto', '*', 'auto', 'auto', 'auto'] as const,
       body: filasPlan.map((r2) =>
         r2.map((c, idx) =>
           idx === 0
