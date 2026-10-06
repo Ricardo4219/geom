@@ -124,50 +124,88 @@ function buildDocDefinition(
 
   const e: PasoOptimizado[] = p.pasosGeom ?? [];
 
-  // Prepesado derivado del plan real (pesos exactos por tanda).
-  // (Se eliminó el bloque "tandas sugeridas" obsoleto del algoritmo con sub-mezcla por malla.)
+  // Prepesado derivado del plan real (pesos exactos por tanda, con malla y casilla para tachar).
   if (e.length) {
     ke.push({ text: 'Prepesado según plan (pesos exactos)', style: 'h2', margin: [0, 12, 0, 6] });
-    const filasPlan: unknown[][] = [[{ text: 'Ingrediente', style: 'tableHeader' }, { text: 'Tandas', style: 'tableHeader' }, { text: 'Peso total (g)', style: 'tableHeader' }]];
 
     // Agrupar adiciones por ingrediente (excluyendo UNIFICACIÓN)
     const porIngrediente: Record<string, { tandas: number[]; total: number }> = {};
+    const ordenIngredientes: string[] = [];
     for (const paso of e) {
       if (paso.ingrediente === 'UNIFICACIÓN') continue;
       const ing = paso.ingrediente;
-      if (!porIngrediente[ing]) porIngrediente[ing] = { tandas: [], total: 0 };
+      if (!porIngrediente[ing]) {
+        porIngrediente[ing] = { tandas: [], total: 0 };
+        ordenIngredientes.push(ing);
+      }
       porIngrediente[ing].tandas.push(paso.adicion);
       porIngrediente[ing].total += paso.adicion;
     }
 
-    for (const [ing, data] of Object.entries(porIngrediente)) {
-      const tandasStr = data.tandas.map((t) => `${t.toFixed(2)} g`).join(', ');
+    const filasPlan: unknown[][] = [[
+      { text: 'Ingrediente', style: 'tableHeader' },
+      { text: 'Malla', style: 'tableHeader' },
+      { text: 'Tandas (tacha al pesar)', style: 'tableHeader' },
+      { text: 'Total (g)', style: 'tableHeader' },
+    ]];
+
+    for (const ing of ordenIngredientes) {
+      const data = porIngrediente[ing]!;
+      const malla = mallas[ing] ?? '80';
+      // Cada tanda en un rectángulo (casilla) para tachar al pesarla
+      const celdasTandas = data.tandas.map((t) => ({
+        table: { body: [[{ text: `${t.toFixed(2)} g`, alignment: 'center', fontSize: 12, bold: true }]] },
+        layout: {
+          hLineWidth: () => 1.2,
+          vLineWidth: () => 1.2,
+          hLineColor: () => '#333333',
+          vLineColor: () => '#333333',
+          paddingLeft: () => 8,
+          paddingRight: () => 8,
+          paddingTop: () => 5,
+          paddingBottom: () => 5,
+        },
+      }));
       filasPlan.push([
-        { text: ing, alignment: 'left' as const },
-        { text: tandasStr, alignment: 'left' as const },
-        { text: data.total.toFixed(2), alignment: 'right' as const },
+        { text: ing, alignment: 'left' as const, fontSize: 11 },
+        { text: `malla ${malla}`, alignment: 'center' as const, fontSize: 11 },
+        { columns: celdasTandas.map((c) => ({ ...c, width: 'auto', margin: [0, 0, 6, 0] })) },
+        { text: data.total.toFixed(2), alignment: 'right' as const, fontSize: 11, bold: true },
       ]);
     }
 
     ke.push({
       table: {
-        widths: ['*', '*', 'auto'] as const,
+        widths: ['*', 'auto', 'auto', 'auto'] as const,
         body: filasPlan,
       },
       layout: 'lightHorizontalLines',
-      fontSize: 8,
       margin: [0, 0, 0, 8],
     });
   }
 
   ke.push({ text: 'Plan de Mezcla Optimizado', style: 'h2', margin: [0, 12, 0, 6] });
   ke.push({ text: 'Paso 0: Preparación de Materias Primas', style: 'h2' });
+
+  // Tamizado dinámico: agrupa ingredientes por malla
+  const porMalla: Record<string, string[]> = {};
+  for (const ing of ingredientes) {
+    const m = mallas[ing.nombre] ?? '80';
+    if (!porMalla[m]) porMalla[m] = [];
+    porMalla[m].push(ing.nombre);
+  }
+  const lineasTamizado: string[] = [];
+  for (const m of Object.keys(porMalla).sort()) {
+    lineasTamizado.push(`  • Malla ${m}: ${(porMalla[m] ?? []).join(', ')}`);
+  }
+
   ke.push({
     ul: [
       {
-        text: 'Tamizado: Pasa cada uno de los ingredientes, por separado, a través de un tamiz de malla 80.',
+        text: 'Tamizado — pasa cada ingrediente por separado por el tamiz de su malla correspondiente:',
         alignment: 'justify',
       },
+      ...lineasTamizado.map((t) => ({ text: t, fontSize: 9, margin: [10, 1, 0, 1] })),
       {
         text:
           'Objetivo: Romper cualquier aglomerado y asegurar que todos los polvos tengan un perfil de tamaño de partícula consistente y estén sueltos.',
