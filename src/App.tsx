@@ -180,8 +180,8 @@ export default function App() {
     <div className="container">
       <header>
         <div>
-          <h1>NutraLab</h1>
-          <p>Mezcla siempre dos porciones de igual peso para lograr homogeneidad.</p>
+          <h1>NutraLab · GEOM</h1>
+          <p>Plan de mezclado homogéneo — dilución geométrica 1:1 (orden ascendente, piperina primero).</p>
         </div>
         <div className="toolbar">
           <button className="button secondary" onClick={onCargarEjemplo}>Cargar ejemplo</button>
@@ -189,7 +189,7 @@ export default function App() {
           <button className="button secondary" onClick={() => setShowHistory(true)}>
             Historial ({history.mezclas.length})
           </button>
-          <button className="button" onClick={onExportTXT}>Exportar TXT</button>
+          <button className="button secondary" onClick={onExportTXT}>Exportar TXT</button>
           <button
             className="button"
             onMouseEnter={pdfModule.preloadOnHover}

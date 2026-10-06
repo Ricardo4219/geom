@@ -10,43 +10,50 @@ interface Props {
 export function HomogeneityTable({ pasos, violaciones = [] }: Props) {
   if (pasos.length === 0) return null;
   const setViol = new Set(violaciones);
+  const cell: React.CSSProperties = { padding: '8px 9px' };
+  const num: React.CSSProperties = { ...cell, textAlign: 'right', fontVariantNumeric: 'tabular-nums' };
   return (
-    <div style={{ overflowX: 'auto', marginTop: 12 }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+    <div style={{ overflowX: 'auto', marginTop: 14 }}>
+      <table>
         <thead>
-          <tr style={{ borderBottom: '1px solid var(--border)' }}>
-            <th style={{ textAlign: 'left', padding: 6 }}>Paso</th>
-            <th style={{ textAlign: 'left', padding: 6 }}>Fase</th>
-            <th style={{ textAlign: 'right', padding: 6 }}>Mezcla antes (g)</th>
-            <th style={{ textAlign: 'right', padding: 6 }}>Adición (g)</th>
-            <th style={{ textAlign: 'right', padding: 6 }}>Mezcla después (g)</th>
-            <th style={{ textAlign: 'right', padding: 6 }}>Índice (%)</th>
-            <th style={{ textAlign: 'right', padding: 6 }}>Residual (%)</th>
-            <th style={{ textAlign: 'right', padding: 6 }}>RSD Est. (%)</th>
-            <th style={{ textAlign: 'right', padding: 6 }}>Energía (RPM/s)</th>
+          <tr>
+            <th style={{ ...cell, textAlign: 'left' }}>Paso</th>
+            <th style={{ ...cell, textAlign: 'left' }}>Fase</th>
+            <th style={{ ...cell, textAlign: 'right' }}>Mezcla antes (g)</th>
+            <th style={{ ...cell, textAlign: 'right' }}>Adición (g)</th>
+            <th style={{ ...cell, textAlign: 'right' }}>Mezcla después (g)</th>
+            <th style={{ ...cell, textAlign: 'right' }}>Índice (%)</th>
+            <th style={{ ...cell, textAlign: 'right' }}>Residual (%)</th>
+            <th style={{ ...cell, textAlign: 'right' }}>RSD Est. (%)</th>
+            <th style={{ ...cell, textAlign: 'right' }}>Energía (RPM/s)</th>
           </tr>
         </thead>
         <tbody>
           {pasos.map((p, i) => {
             const n = i + 1;
             const esViol = setViol.has(n) || (p.adicion > p.mezclaAntes + 0.05 && p.ingrediente !== 'UNIFICACIÓN');
+            const rsd = p.rsdEstimado ?? 0;
+            const rsdClass = rsd < 5 ? 'ok' : rsd < 10 ? 'warn' : 'danger';
             return (
               <tr
                 key={n}
                 style={{
-                  borderBottom: '1px solid var(--border)',
-                  background: esViol ? 'rgba(255,107,107,0.08)' : undefined,
+                  background: esViol ? 'rgba(255,107,107,0.09)' : undefined,
                 }}
               >
-                <td style={{ padding: 6 }}>{n}</td>
-                <td style={{ padding: 6 }}>{nombreFase(p.fase)}</td>
-                <td style={{ padding: 6, textAlign: 'right' }}>{p.mezclaAntes.toFixed(2)}</td>
-                <td style={{ padding: 6, textAlign: 'right' }}>{p.adicion.toFixed(2)}</td>
-                <td style={{ padding: 6, textAlign: 'right' }}>{p.mezclaDespues.toFixed(2)}</td>
-                <td style={{ padding: 6, textAlign: 'right' }}>{((p.indiceHomogeneidad ?? 0) * 100).toFixed(1)}</td>
-                <td style={{ padding: 6, textAlign: 'right' }}>{((p.homogeneidadResidual ?? 0) * 100).toFixed(1)}</td>
-                <td style={{ padding: 6, textAlign: 'right' }}>{(p.rsdEstimado ?? 0).toFixed(1)}</td>
-                <td style={{ padding: 6, textAlign: 'right' }}>
+                <td style={cell}>{n}</td>
+                <td style={cell}>
+                  <span className={`badge ${esViol ? 'danger' : 'ok'}`}>{nombreFase(p.fase)}</span>
+                </td>
+                <td style={num}>{p.mezclaAntes.toFixed(2)}</td>
+                <td style={num}>{p.adicion.toFixed(2)}</td>
+                <td style={num}>{p.mezclaDespues.toFixed(2)}</td>
+                <td style={num}>{((p.indiceHomogeneidad ?? 0) * 100).toFixed(1)}</td>
+                <td style={num}>{((p.homogeneidadResidual ?? 0) * 100).toFixed(1)}</td>
+                <td style={num}>
+                  <span className={`badge ${rsdClass}`}>{rsd.toFixed(1)}</span>
+                </td>
+                <td style={num}>
                   {p.energia ? `${p.energia.rpm ?? '—'} RPM / ${p.energia.tiempoSeg ?? '—'}s` : '—'}
                 </td>
               </tr>
