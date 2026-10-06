@@ -412,12 +412,18 @@ export function wd(
     }
   };
 
-  // Descontar MCT usado en precorte del lote base
+  // Descontar MCT usado en precorte del lote base (cierre exacto = total fórmula)
   principales.forEach((p) => {
     const esMCT = p.nombre === 'MCT' || p.nombre === 'mct' || p.nombre.includes('MCT') || p.nombre.includes('Triglicéridos');
     const pesoAjustado = esMCT ? Math.max(0, p.peso - mctUsadoPrecorte) : p.peso;
     if (pesoAjustado > 0) agregar(p.nombre, pesoAjustado);
   });
+
+  // Verificación de cierre: mezcla principal + unificación = total fórmula
+  const totalPlan = mezclaPrincipal + subTotal + precorteTotal;
+  if (Math.abs(totalPlan - totalPesos) > 0.5) {
+    console.warn(`[wd] Plan no cierra: ${totalPlan.toFixed(2)} g vs fórmula ${totalPesos.toFixed(2)} g`);
+  }
 
   // 4) Terminar de añadir el "principal" original (lo que no se usó) — solo si no fue precortado
   if (sub && principal && sub.nombre !== principal.nombre && !nombresPrecorte.has(principal.nombre)) {

@@ -122,6 +122,8 @@ function buildDocDefinition(
   })();
   ke.push(tablaIng);
 
+  const e: PasoOptimizado[] = p.pasosGeom ?? [];
+
   if (prepesadoTandas && prepesadoTandas.length) {
     ke.push({ text: 'Prepesado (tandas sugeridas)', style: 'h2', margin: [0, 12, 0, 6] });
     const filasPre: unknown[][] = [[{ text: 'Ingrediente', style: 'tableHeader' }, { text: 'Grupos', style: 'tableHeader' }]];
@@ -172,6 +174,41 @@ function buildDocDefinition(
     });
   }
 
+  // Prepesado derivado del plan real (pesos exactos por tanda)
+  if (e.length) {
+    ke.push({ text: 'Prepesado según plan (pesos exactos)', style: 'h2', margin: [0, 12, 0, 6] });
+    const filasPlan: unknown[][] = [[{ text: 'Ingrediente', style: 'tableHeader' }, { text: 'Tandas', style: 'tableHeader' }, { text: 'Peso total (g)', style: 'tableHeader' }]];
+
+    // Agrupar adiciones por ingrediente (excluyendo UNIFICACIÓN)
+    const porIngrediente: Record<string, { tandas: number[]; total: number }> = {};
+    for (const paso of e) {
+      if (paso.ingrediente === 'UNIFICACIÓN') continue;
+      const ing = paso.ingrediente;
+      if (!porIngrediente[ing]) porIngrediente[ing] = { tandas: [], total: 0 };
+      porIngrediente[ing].tandas.push(paso.adicion);
+      porIngrediente[ing].total += paso.adicion;
+    }
+
+    for (const [ing, data] of Object.entries(porIngrediente)) {
+      const tandasStr = data.tandas.map((t) => `${t.toFixed(2)} g`).join(', ');
+      filasPlan.push([
+        { text: ing, alignment: 'left' as const },
+        { text: tandasStr, alignment: 'left' as const },
+        { text: data.total.toFixed(2), alignment: 'right' as const },
+      ]);
+    }
+
+    ke.push({
+      table: {
+        widths: ['*', '*', 'auto'] as const,
+        body: filasPlan,
+      },
+      layout: 'lightHorizontalLines',
+      fontSize: 8,
+      margin: [0, 0, 0, 8],
+    });
+  }
+
   ke.push({ text: 'Plan de Mezcla Optimizado', style: 'h2', margin: [0, 12, 0, 6] });
   ke.push({ text: 'Paso 0: Preparación de Materias Primas', style: 'h2' });
   ke.push({
@@ -202,24 +239,27 @@ function buildDocDefinition(
   });
 
   // Tabla del plan
-  const filasPlan: string[][] = [['Paso', 'Procedimiento', 'Mezcla acum. (g)']];
-  const e: PasoOptimizado[] = p.pasosGeom ?? [];
+  const filasPlan: string[][] = [['Paso', 'Procedimiento', 'Mezcla accum. (g)', 'Tiempo']];
   const r: string[] = p.planOptimizado ?? [];
-  const n: { n: number; texto: string; mezcla: string }[] = [];
+  const n: { n: number; texto: string; mezcla: string; tiempo: string }[] = [];
   if (r.length && e.length === r.length) {
     for (let i = 0; i < r.length; i++) {
       const c = e[i];
-      n.push({ n: i + 1, texto: r[i] ?? '', mezcla: ((c?.mezclaDespues ?? 0) as unknown as number).toFixed(2) });
+      const tiempo = c?.energia ? `${c.energia.rpm ?? '—'} RPM / ${c.energia.tiempoSeg ?? '—'}s` : '—';
+      n.push({ n: i + 1, texto: r[i] ?? '', mezcla: ((c?.mezclaDespues ?? 0) as unknown as number).toFixed(2), tiempo });
     }
   } else if (e.length) {
-    e.forEach((c, i) => n.push({ n: i + 1, texto: c.descripcion, mezcla: c.mezclaDespues.toFixed(2) }));
+    e.forEach((c, i) => {
+      const tiempo = c.energia ? `${c.energia.rpm ?? '—'} RPM / ${c.energia.tiempoSeg ?? '—'}s` : '—';
+      n.push({ n: i + 1, texto: c.descripcion, mezcla: c.mezclaDespues.toFixed(2), tiempo });
+    });
   } else {
-    n.push({ n: 1, texto: 'No hay ingredientes para mezclar.', mezcla: '-' });
+    n.push({ n: 1, texto: 'No hay ingredientes para mezclar.', mezcla: '-', tiempo: '—' });
   }
-  for (const x of n) filasPlan.push([String(x.n), x.texto, x.mezcla]);
+  for (const x of n) filasPlan.push([String(x.n), x.texto, x.mezcla, x.tiempo]);
   ke.push({
     table: {
-      widths: ['auto', '*', 'auto'] as const,
+      widths: ['auto', '*', 'auto', 'auto'] as const,
       body: filasPlan.map((r2) =>
         r2.map((c, idx) =>
           idx === 0
