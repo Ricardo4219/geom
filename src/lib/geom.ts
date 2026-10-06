@@ -328,32 +328,29 @@ export function wd(
 
       for (let t = 0; t < tandas; t++) {
         const fase = precorteTotal === 0 ? 'SUB' : 'PRINCIPAL';
-        const energia = calcularEnergia(subMezclaTanda, precorteTotal === 0 ? 0 : mezclaPrincipal, fase);
+        const energia = calcularEnergia(subMezclaTanda, precorteTotal === 0 ? 0 : precorteTotal, fase);
         // Tiempo mínimo 90s para trazas en lote grande (V-1000g)
         const energiaAjustada = energia.tiempoSeg < 90
           ? { ...energia, tiempoSeg: 90 }
           : energia;
-        if (mezclaPrincipal === 0 && precorteTotal === 0) {
+        if (precorteTotal === 0) {
           pushPaso(
-            `Precorte: Inicia ${subMezclaTanda.toFixed(2)} g (${porcionTanda.toFixed(2)} g ${ing.nombre} + ${excipientePorTanda.toFixed(2)} g ${excipientePrecorte.nombre}). Mezcla.`,
+            `Precorte (reservar aparte): Inicia ${subMezclaTanda.toFixed(2)} g (${porcionTanda.toFixed(2)} g ${ing.nombre} + ${excipientePorTanda.toFixed(2)} g ${excipientePrecorte.nombre}). Mezcla.`,
             subMezclaTanda,
             0,
             `${ing.nombre}+${excipientePrecorte.nombre}`,
             false,
             energiaAjustada
           );
-          mezclaPrincipal = subMezclaTanda;
         } else {
-          const antes = mezclaPrincipal;
           pushPaso(
-            `Precorte: Añade ${subMezclaTanda.toFixed(2)} g (${porcionTanda.toFixed(2)} g ${ing.nombre} + ${excipientePorTanda.toFixed(2)} g ${excipientePrecorte.nombre}). Mezcla.`,
+            `Precorte (reservar aparte): Añade ${subMezclaTanda.toFixed(2)} g (${porcionTanda.toFixed(2)} g ${ing.nombre} + ${excipientePorTanda.toFixed(2)} g ${excipientePrecorte.nombre}). Mezcla.`,
             subMezclaTanda,
-            antes,
+            precorteTotal,
             `${ing.nombre}+${excipientePrecorte.nombre}`,
             false,
             energiaAjustada
           );
-          mezclaPrincipal += subMezclaTanda;
         }
         precorteTotal += subMezclaTanda;
       }
@@ -419,7 +416,7 @@ export function wd(
     if (pesoAjustado > 0) agregar(p.nombre, pesoAjustado);
   });
 
-  // Verificación de cierre: mezcla principal + unificación = total fórmula
+  // Verificación de cierre: mezcla principal (lote base) + precorte reservado = total fórmula
   const totalPlan = mezclaPrincipal + subTotal + precorteTotal;
   if (Math.abs(totalPlan - totalPesos) > 0.5) {
     console.warn(`[wd] Plan no cierra: ${totalPlan.toFixed(2)} g vs fórmula ${totalPesos.toFixed(2)} g`);
